@@ -1,7 +1,7 @@
 import {GameService} from './game-service';
-import {getXpRequiredForLevel, rollD20} from './util';
-import {TwitchContext, TwitchTmi} from './models/twitch';
-import {Player, PlayerCurrency, PlayerVitals} from './models/player';
+import {getXpRequiredForLevel, rollD20} from '../util';
+import {TwitchContext, TwitchTmi} from '../models/twitch';
+import {Player, PlayerCurrency, PlayerVitals} from '../models/player';
 
 const https = require('https');
 const tmi = require('tmi.js');

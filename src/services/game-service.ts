@@ -1,8 +1,8 @@
-import {AdventuringParty} from './models/adventure';
+import {AdventuringParty} from '../models/adventure';
 import {GameDataService} from './game-data-service';
 import {updateViewers} from './twitch-client-service';
-import {getXpRequiredForLevel} from './util';
-import {TwitchContext} from './models/twitch';
+import {getXpRequiredForLevel} from '../util';
+import {TwitchContext} from '../models/twitch';
 import {
     getDefaultPlayerEquipment,
     getDefaultPlayerStatus,
@@ -10,7 +10,7 @@ import {
     getNewVitals,
     Player,
     PlayerCurrency
-} from './models/player';
+} from '../models/player';
 
 export class GameService {
     public client: any;

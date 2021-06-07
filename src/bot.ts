@@ -41,7 +41,7 @@
 // TODO: Daily Shop - Buy items with coins collected. Also you can try to steal a shop item.
 // TODO: PvP - challenge other players to duels.
 
-import { TwitchClientService } from "./twitch-client-service";
+import { TwitchClientService } from "./services/twitch-client-service";
 
 const fs = require('fs');
 
