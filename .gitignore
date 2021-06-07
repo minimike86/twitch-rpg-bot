@@ -1,0 +1,5 @@
+/node_modules/
+/dist/
+/.idea/
+/twitch-rpg-bot.iml
+/package-lock.json

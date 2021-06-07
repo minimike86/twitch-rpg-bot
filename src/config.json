@@ -1,0 +1,11 @@
+{
+  "options": { "debug": true },
+  "connection": { "reconnect": true },
+  "identity": {
+    "username": "TwitchChatTheRpg",
+    "password": "XXXXXXXXXXXXXXXXXXXX"
+  },
+  "channels": [
+    "MSec"
+  ]
+}
