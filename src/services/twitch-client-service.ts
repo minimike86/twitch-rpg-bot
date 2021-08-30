@@ -28,7 +28,7 @@ export class TwitchClientService {
      * @param port
      */
     onConnectedHandler (target: string, ipAddress: string, port: string): void {
-        console.log(`[${new Date().toLocaleTimeString()}] info: Connected to ${ipAddress}:${port}`);
+        console.info(`[${new Date().toLocaleTimeString()}] info: Connected to ${ipAddress}:${port}`);
         setInterval(() => {
             gameService.addXpToViewers(target).then();
         }, 5 * 60 * 1000);
@@ -80,7 +80,7 @@ export class TwitchClientService {
          * Action    : Prints the current Gold total for a given player
          */
         else if (commandName === '!gold') {
-            const currency: PlayerCurrency = gameService.getCurrency(context.username);
+            const currency: PlayerCurrency = gameService.getPlayerCurrency(context.username);
             client.say(target, `${context.username} has ${currency.GOLD} gold.`);
         }
 
@@ -156,7 +156,8 @@ export class TwitchClientService {
         else if (commandName === '!stats') {
             const player: Player = gameService.getPlayer(context.username);
             client.say(target, `${context.username} your RPG characters stats are: 
-                         HP: ${player.vitals.HP}/${player.vitals.MAXHP} ⚠,
+                         LVL: ${player.vitals.LVL},
+                         HP: ${player.vitals.HP}/${player.vitals.MAXHP}${((player.vitals.HP / player.vitals.MAXHP) * 100) <= 25 ? ' ⚠' : ''},
                          ATK: ${player.stats.ATK},
                          DEF: ${player.stats.DEF}, 
                          STA: ${player.stats.STA},
@@ -187,14 +188,14 @@ export class TwitchClientService {
         else if (commandName.startsWith('!revive')) {
             const username: string = commands[1];
             if (commands.length === 2) {
-                gameService.revivePlayer(target, username);
+                gameService.revivePlayer(target, username, context);
             }
         }
 
         /**
          * Command   : !adventure OR !quest
          * Action    : Starts a new adventure.
-         * TODO: Adventures - Start or join adventures to earn xp and loot. Accept up to 4 people.
+         * TODO: Adventures - Start or join adventures to earn xp and loot. Accept up to X people.
          *  It will randomly generate a boss for you to battle, using a turn based system it will automate the battle.
          */
         else if (commandName === '!adventure' || commandName === '!quest') {
@@ -210,11 +211,11 @@ export class TwitchClientService {
         }
 
         else {
-            console.log(`[${new Date().toLocaleTimeString()}] info: Unknown command ${commandName}`);
+            console.warn(`[${new Date().toLocaleTimeString()}] info: Unknown command ${commandName}`);
             return;
         }
 
-        console.log(`[${new Date().toLocaleTimeString()}] info: Executed ${commandName} command`);
+        console.info(`[${new Date().toLocaleTimeString()}] info: Executed ${commandName} command`);
 
     }
 
@@ -228,10 +229,10 @@ export class TwitchClientService {
  * @param context
  */
 export function handleUserContribution(target: string, context: TwitchContext): void {
-    const users: [] = gameService.getUser(context.username);
+    const users: Player[] = gameService.getFilteredPlayers(context.username);
     if (users.length === 0) {
         // FIRST USER INTERACTION
-        gameService.addUser(target, context);
+        gameService.addPlayer(target, context);
     } else {
         // SUBSEQUENT USER INTERACTION
         gameService.addXp(target, context.username, Math.floor(Math.random() * 5) + 1);

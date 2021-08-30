@@ -1,3 +1,7 @@
+import { HeadArmourItem, TorsoArmourItem, BackArmourItem, WristArmourItem, HandsArmourItem,
+         RingArmourItem, LegsArmourItem, FeetArmourItem, MeleeWeaponItem, RangedWeaponItem, LootItem } from "./item";
+import { rollDice } from "../util";
+
 export class Player {
     public 'user-id': string;
     public username: string;
@@ -13,7 +17,7 @@ export class Player {
     constructor(user_id: string, username: string, mod: boolean, subscriber: boolean,
                 stats: PlayerStats, vitals: PlayerVitals, status: PlayerStatus,
                 equipment: PlayerEquipment, lootBag: LootItem[], reRoll: 3) {
-        this["user-id"] = user_id;
+        this['user-id'] = user_id;
         this.username = username;
         this.mod = mod;
         this.subscriber = subscriber;
@@ -125,9 +129,3 @@ export function getDefaultPlayerEquipment(): PlayerEquipment {
         rangedWeapon: null
     };
 }
-
-import {rollDice} from "../util";
-import {
-    HeadArmourItem, TorsoArmourItem, BackArmourItem, WristArmourItem, HandsArmourItem,
-    RingArmourItem, LegsArmourItem, FeetArmourItem, MeleeWeaponItem, RangedWeaponItem, LootItem
-} from "./item";
