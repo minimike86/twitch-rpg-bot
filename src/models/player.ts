@@ -1,31 +1,46 @@
-import { HeadArmourItem, TorsoArmourItem, BackArmourItem, WristArmourItem, HandsArmourItem,
-         RingArmourItem, LegsArmourItem, FeetArmourItem, MeleeWeaponItem, RangedWeaponItem, LootItem } from "./item";
-import { rollDice } from "../util";
+import {
+    HeadArmourItem, TorsoArmourItem, BackArmourItem, WristArmourItem, HandsArmourItem,
+    RingArmourItem, LegsArmourItem, FeetArmourItem, MeleeWeaponItem, RangedWeaponItem,
+    LootItem, Unarmed
+} from './item';
+import {rollDice} from '../util';
+import {randomBytes} from "crypto";
 
-export class Player {
-    public 'user-id': string;
-    public username: string;
-    public mod: boolean;
-    public subscriber: boolean;
+export class BasicPlayer {
+    public id: string;
     public stats: PlayerStats;
     public vitals: PlayerVitals;
     public status: PlayerStatus;
     public equipment: PlayerEquipment;
     public lootBag: LootItem[];
-    public reRoll: 3;
 
-    constructor(user_id: string, username: string, mod: boolean, subscriber: boolean,
-                stats: PlayerStats, vitals: PlayerVitals, status: PlayerStatus,
-                equipment: PlayerEquipment, lootBag: LootItem[], reRoll: 3) {
-        this['user-id'] = user_id;
-        this.username = username;
-        this.mod = mod;
-        this.subscriber = subscriber;
+    constructor(stats: PlayerStats, vitals: PlayerVitals, status: PlayerStatus,
+                equipment: PlayerEquipment, lootBag: LootItem[]) {
+        this.id = randomBytes(20).toString('hex');
         this.stats = stats;
         this.vitals = vitals;
         this.status = status;
         this.equipment = equipment;
         this.lootBag = lootBag;
+    }
+
+}
+
+export class Player extends BasicPlayer {
+    public 'user-id': string;
+    public username: string;
+    public mod: boolean;
+    public subscriber: boolean;
+    public reRoll: 3;
+
+    constructor(user_id: string, username: string, mod: boolean, subscriber: boolean,
+                stats: PlayerStats, vitals: PlayerVitals, status: PlayerStatus,
+                equipment: PlayerEquipment, lootBag: LootItem[], reRoll: 3) {
+        super(stats, vitals, status, equipment, lootBag);
+        this['user-id'] = user_id;
+        this.username = username;
+        this.mod = mod;
+        this.subscriber = subscriber;
         this.reRoll = reRoll;
     }
 
@@ -42,12 +57,12 @@ export interface PlayerStats {
 
 export function getNewStats(): PlayerStats {
     return {
-        ATK: Math.floor(Math.random() * 4) + 3,
-        DEF: Math.floor(Math.random() * 4) + 3,
-        STA: Math.floor(Math.random() * 11) + 15,
-        ACC: Math.floor(Math.random() * 4) + 3,
-        EVA: Math.floor(Math.random() * 4) + 3,
-        SPD: Math.floor(Math.random() * 4) + 3
+        ATK: rollDice(6),
+        DEF: rollDice(6),
+        STA: rollDice(6),
+        ACC: rollDice(6),
+        EVA: rollDice(6),
+        SPD: rollDice(6)
     };
 }
 
@@ -59,19 +74,17 @@ export interface PlayerVitals {
     CUR: PlayerCurrency;
 }
 
-export function getNewVitals(stats: PlayerStats): PlayerVitals {
-    const maxHp = Math.floor(20 + (stats.STA / 4) + (Math.floor(Math.random() * 6) + 1));
+export function getNewVitals(stats: PlayerStats, level: number): PlayerVitals {
+    const maxHp = [...Array(level)].map(() => rollDice(12) + 2)
+                                   .reduce((a,b) => a + b);
     return {
         HP: maxHp,
         MAXHP: maxHp,
         LVL: 1,
         XP: 0,
         CUR: {
-            GOLD: (rollDice(4)
-                + rollDice(4)
-                + rollDice(4)
-                + rollDice(4)
-                + rollDice(4)) * 10,
+            GOLD: [...Array(5)].map(() => rollDice(4))
+                                         .reduce((a,b) => a + b) * 10,
         }
     }
 }
@@ -82,6 +95,7 @@ export interface PlayerCurrency {
 
 export interface PlayerStatus {
     dead: boolean;
+    undead: boolean;
     slowed: boolean;
     haste: boolean;
     blinded: boolean;
@@ -92,6 +106,7 @@ export interface PlayerStatus {
 export function getDefaultPlayerStatus(): PlayerStatus {
     return {
         dead: false,
+        undead: false,
         slowed: false,
         haste: false,
         blinded: false,
@@ -125,7 +140,7 @@ export function getDefaultPlayerEquipment(): PlayerEquipment {
         ringRight: null,
         legs: null,
         feet: null,
-        meleeWeapon: null,
-        rangedWeapon: null
+        meleeWeapon: new Unarmed(),
+        rangedWeapon: null,
     };
 }

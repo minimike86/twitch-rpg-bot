@@ -1,5 +1,4 @@
-import Timeout = NodeJS.Timeout;
-import {AdventuringParty} from '../models/adventure';
+import {Adventure} from '../models/adventure';
 import {GameDataService} from './game-data-service';
 import {updateViewers} from './twitch-client-service';
 import {getXpRequiredForLevel} from '../util';
@@ -10,26 +9,19 @@ import {
     getNewStats,
     getNewVitals,
     Player,
-    PlayerCurrency, PlayerVitals
+    PlayerVitals,
+    PlayerCurrency
 } from '../models/player';
 
 export class GameService {
     public client: any;
-    private gameDataService: GameDataService;
-    public adventuringParty: AdventuringParty;
-    public adventureCountdown: Timeout;
-    private adventurePartyFormationTime: number = 1;
-    private adventureDelayTime: number = 1;
+    public readonly gameDataService: GameDataService;
+    private adventure: Adventure;
 
     constructor(client: any) {
         this.client = client;
         this.gameDataService = new GameDataService();
-        this.adventuringParty = {
-            isActive: true,
-            isForming: false,
-            maxPartyMembers: 8,
-            partyMembers: []
-        };
+        this.adventure = new Adventure(this);
     }
 
     /**
@@ -37,7 +29,7 @@ export class GameService {
      */
     addPlayer(target: string, context: TwitchContext): void {
         const stats = getNewStats();
-        const vitals = getNewVitals(stats);
+        const vitals = getNewVitals(stats, 1);
         const newPlayer: Player = new Player(context['user-id'], context.username, context.mod, context.subscriber,
             stats, vitals, getDefaultPlayerStatus(), getDefaultPlayerEquipment(), [], 3);
         this.gameDataService.db.get('users')
@@ -46,14 +38,14 @@ export class GameService {
         this.gameDataService.db.update('count', n => n + 1)
             .write();
         console.info(`[${new Date().toLocaleTimeString()}] info: ${context.username} added to db`);
-        this.client.say(target, `Welcome ${context.username} to the stream! Here is your RPG characters stats: 
+        this.client.say(target, `Welcome ${context.username} to the stream! Here is your RPG character stats: 
                          HP: ${vitals.HP}/${vitals.MAXHP},
                          ATK: ${stats.ATK},
                          DEF: ${stats.DEF}, 
                          STA: ${stats.STA},
                          ACC: ${stats.ACC}, 
                          EVA: ${stats.EVA},
-                         SPD: ${stats.SPD}`);
+                         SPD: ${stats.SPD} - if you don't like them type !reroll to make another.`);
     }
 
     getFilteredPlayers(username: string): Player[] {
@@ -83,16 +75,16 @@ export class GameService {
     getPlayerReRoll(username: string): number {
         return this.gameDataService.db.get('users')
             .find({'username': username})
-            .value().reroll;
+            .value().reRoll;
     }
 
     reRollPlayer(target: string, context: TwitchContext): void {
-        const oldReroll: number = this.gameDataService.db.get('users')
+        const oldReRoll: number = this.gameDataService.db.get('users')
             .find({ 'username': context.username })
-            .value().reroll;
-        if (oldReroll >= 1) {
+            .value().reRoll;
+        if (oldReRoll >= 1) {
             const stats = getNewStats();
-            const vitals = getNewVitals(stats);
+            const vitals = getNewVitals(stats, 1);
             this.gameDataService.db.get('users')
                 .find({ 'username': context.username })
                 .assign({ 'stats': stats })
@@ -100,7 +92,7 @@ export class GameService {
                 .assign({ 'status': getDefaultPlayerStatus() })
                 .assign({ 'equipment': getDefaultPlayerEquipment() })
                 .assign({ 'lootBag': [] })
-                .assign({ 'reroll': oldReroll - 1 })
+                .assign({ 'reRoll': oldReRoll - 1 })
                 .write();
             console.info(`[${new Date().toLocaleTimeString()}] info: ${context.username} has been rerolled.`);
             this.client.say(target, `${context.username} your RPG characters stats have been rerolled: 
@@ -111,6 +103,51 @@ export class GameService {
                              ACC: ${stats.ACC}, 
                              EVA: ${stats.EVA},
                              SPD: ${stats.SPD}`);
+        }
+    }
+
+    damagePlayer(username: string, amount: number): void {
+        if (this.gameDataService.userExists(username)) {
+            const player: Player = this.gameDataService.db.get('users')
+                .find({ 'username': username })
+                .value();
+            if (!player.status.dead) {
+                this.gameDataService.db.get('users')
+                    .find({ 'username': username })
+                    .get('vitals')
+                    .assign({ 'HP': player.vitals.HP - amount <= 0 ? 0 : player.vitals.HP - amount })
+                    .write();
+            }
+            if (player.vitals.HP === 0) {
+                this.gameDataService.db.get('users')
+                    .find({ 'username': username })
+                    .get('status')
+                    .assign({ 'dead': true })
+                    .write();
+            }
+        }
+    }
+
+    healPlayer(target: string, username: string, context: TwitchContext): void {
+        const commandUser: Player = this.gameDataService.db.get('users')
+            .find({ 'username': context.username })
+            .value();
+        if (this.gameDataService.userExists(username)) {
+            const player: Player = this.gameDataService.db.get('users')
+                .find({ 'username': username })
+                .value();
+            if (!player.status.dead) {
+                this.gameDataService.db.get('users')
+                    .find({ 'username': username })
+                    .get('vitals')
+                    .assign({ 'HP': player.vitals.MAXHP })
+                    .write();
+                this.client.say(target, `${commandUser.username} applies a healing kit to ${username} and restores their health.`);
+            } else {
+                this.client.say(target, `${username} is dead.`);
+            }
+        } else {
+            this.client.say(target, `${username} is not a valid username.`);
         }
     }
 
@@ -140,12 +177,7 @@ export class GameService {
             const player: Player = this.gameDataService.db.get('users')
                 .find({ 'username': username })
                 .value();
-            if (player.vitals.HP <= 0 && player.status.dead) {
-                this.gameDataService.db.get('users')
-                    .find({ 'username': username })
-                    .get('vitals')
-                    .assign({ 'HP': Math.floor(player.vitals.MAXHP / 2) })
-                    .write();
+            if (player.status.dead) {
                 this.gameDataService.db.get('users')
                     .find({ 'username': username })
                     .get('status')
@@ -285,95 +317,7 @@ export class GameService {
         const player: Player = this.gameDataService.db.get('users')
             .find({ 'username': username })
             .value();
-
-        // Check user can start and/or join a quest
-        if (player.vitals.HP <= 0) {
-            this.client.say(target, `Sorry ${player.username} you can't ${this.adventuringParty.isForming ? 'join' : 'start'} an adventuring party if you're dead!`);
-            return;
-        }
-
-        // Check if a quest is not already started (either in progress, or on cool down).
-        if (!this.adventuringParty.isActive) {
-
-            // Form a new adventuring party
-            if (!this.adventuringParty.isForming) {
-                this.client.say(target, `${player.username} is looking to form a new adventuring party for a quest.`);
-                if (this.adventureCountdown === undefined) {
-                    this.adventuringParty.isForming = true;
-                    this.adventureCountdown = setTimeout(() => {
-                        this.startAdventure(target);
-                    }, this.adventurePartyFormationTime * 60 * 1000);
-                    if (this.adventurePartyFormationTime >= 1) {
-                        setTimeout(() => {
-                            this.client.say(target, `The adventuring party will set off on the quest in 1 minute. Type !quest to join!`);
-                        }, (this.adventurePartyFormationTime * 60 * 1000) - (60 * 1000));
-                        setTimeout(() => {
-                            this.client.say(target, `The adventuring party will set off on the quest in 30 seconds. Type !quest to join!`);
-                        }, (this.adventurePartyFormationTime * 60 * 1000) - (30 * 1000));
-                    }
-                }
-            }
-
-            // An adventuring party is being formed
-            if (this.adventuringParty.isForming) {
-                if (this.adventuringParty.partyMembers.length < this.adventuringParty.maxPartyMembers - 1
-                    && !this.adventuringParty.partyMembers.includes(player)) {
-                    // Add party member
-                    this.adventuringParty.partyMembers.push(player);
-                    this.client.say(target, `${player.username} has joined the adventuring party!
-                                     ${this.adventuringParty.partyMembers.length !== this.adventuringParty.maxPartyMembers ?
-                        ` There are ${this.adventuringParty.maxPartyMembers - this.adventuringParty.partyMembers.length} party member slots left. Type !quest to join!` : ''}`);
-                    if (this.adventuringParty.partyMembers.length >= this.adventuringParty.maxPartyMembers - 1) {
-                        this.client.say(target, `The adventuring party is full!`);
-                    }
-                } else {
-                    if (this.adventuringParty.partyMembers.includes(player)) {
-                        this.client.say(target, `${player.username} is already in the adventuring party!`);
-                        return;
-                    }
-                    if (this.adventuringParty.partyMembers.length >= this.adventuringParty.maxPartyMembers - 1) {
-                        this.client.say(target, `Sorry ${player.username} but the adventuring party is full!`);
-                        return;
-                    }
-                }
-            }
-
-        }
-
-    }
-
-    startAdventure(target: string): void {
-        this.adventuringParty.isActive = true;
-        this.client.say(target, `The adventuring party has gone looking for a new adventure and encountered a vicious monster!`);
-        setTimeout(() => {
-            const success = Math.random() < 0.5
-            if (success) {
-                const xp = Math.floor(Math.random() * 250) + 1;
-                let spoilsReport: string = '';
-                this.adventuringParty.partyMembers.forEach(member => {
-                    const gold = Math.floor(Math.random() * 1000) + 1;
-                    this.addXp(target, member.username, xp);
-                    this.addGold(target, member.username, gold);
-                    spoilsReport += `${spoilsReport}${member.username} gained ${xp}xp and ${gold}gold; `;
-                });
-                this.client.say(target, `The party returns safely with a bunch of loot! ${spoilsReport}`);
-            } else {
-                this.adventuringParty.partyMembers.forEach(member => {
-                    this.killPlayer(target, member.username);
-                });
-                this.client.say(target, `The party has fallen. RIP.`);
-            }
-
-            this.adventureCountdown = undefined;
-            this.adventuringParty.partyMembers = [];
-            this.adventuringParty.isForming = false;
-
-            setTimeout(() => {
-                this.client.say(target, `A new quest is available. Type !quest to join!`);
-                this.adventuringParty.isActive = false;
-            }, (this.adventureDelayTime) * 60 * 1000);
-
-        }, 15 * 1000);
+        this.adventure.join(target, this.client, player);
     }
 
 }

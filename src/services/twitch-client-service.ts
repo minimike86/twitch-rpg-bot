@@ -44,6 +44,7 @@ export class TwitchClientService {
      */
     onMessageHandler (target: string, context: TwitchContext, msg: string, self: boolean): void {
         if (self) { return; } // Ignore messages from the bot
+        if (['nightbot', 'streamlabs', 'soundalerts'].includes(context.username)) { return; } // Ignore messages from other bots
         // if (!msg.trim().startsWith('!', 0)) { return; } // Ignore non-commands
 
         // Remove whitespace from chat message
@@ -145,7 +146,7 @@ export class TwitchClientService {
          */
         else if (commandName === '!reroll') {
             const reRoll: number = gameService.getPlayerReRoll(context.username);
-            reRoll >= 1 ? gameService.reRollPlayer(target, context)
+            reRoll >= 0 ? gameService.reRollPlayer(target, context)
                 : client.say(target, `${context.username} your RPG character cannot be rerolled again`);
         }
 
@@ -177,6 +178,18 @@ export class TwitchClientService {
                 gameService.killPlayer(target, username);
             } else {
                 console.warn(`[${new Date().toLocaleTimeString()}] warn: Insufficient permission (mod) to run ${commandName} command`);
+            }
+        }
+
+        /**
+         * Command   : !heal <username>
+         * Action    : Heals a player.
+         * TODO: Make it so revives use a healing potion
+         */
+        else if (commandName.startsWith('!heal')) {
+            const username: string = commands[1];
+            if (commands.length === 2) {
+                gameService.healPlayer(target, username, context);
             }
         }
 

@@ -1,13 +1,16 @@
-const low = require('lowdb');
-const FileSync = require('lowdb/adapters/FileSync');
+import {Player} from "../models/player";
+
+const Low = require('lowdb');
+const JSONFileSync = require('lowdb/adapters/FileSync');
+
 
 export class GameDataService {
 
-    private adapter = new FileSync('src/db.json');
+    private adapter = new JSONFileSync('src/db.json');
     public db: any;
 
     constructor() {
-        this.db = low(this.adapter);
+        this.db = new Low(this.adapter);
         this.setDefaults();
     }
 
@@ -17,7 +20,7 @@ export class GameDataService {
     }
 
     userExists(username: string): boolean {
-        const users = this.db.get('users')
+        const users: Player[] = this.db.get('users')
             .filter({ 'username': username })
             .value();
         return users.length >= 1;
